@@ -1,0 +1,26 @@
+@import 'tailwindcss';
+
+.scrollbar-auto {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s;
+}
+.scrollbar-auto:hover,
+.scrollbar-auto:active {
+  scrollbar-color: rgba(0,0,0,0.18) transparent;
+}
+.scrollbar-auto::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-auto::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+.scrollbar-auto:hover::-webkit-scrollbar-thumb,
+.scrollbar-auto:active::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.18);
+}
+.scrollbar-auto::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1,0 +1,26 @@
+node_modules/
+dist/
+.vite/
+coverage/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and local caches
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+.cache/
+
+# Package-manager metadata not used by this project
+.pnp.*
+.yarn/
+
+# OS and editor files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
