@@ -1076,9 +1076,8 @@ export default function App() {
         user_agent: navigator.userAgent,
       })
       setNotificationSubscriptionId(subscription.subscription_id)
-      // R04 is the deterministic demo station seeded by the backend. Other stations
-      // remain visible as user preferences until Beacon support is added in SCRUM-38.
-      await loadRecommendation('R04')
+      // Use the station selected during onboarding; R04 remains the fallback for skip/demo mode.
+      await loadRecommendation(result.stations[0] || 'R04')
       setApiMessage('已同步設定並啟用展示推播，這是依照您的偏好產生的推薦。')
     } catch (error) {
       setApiMessage(error instanceof Error ? `後端尚未連線：${error.message}` : '後端尚未連線，先顯示展示資料。')
