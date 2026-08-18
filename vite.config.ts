@@ -90,7 +90,7 @@ function figmaSiteConfiguration(config: FigmaSiteConfiguration): Plugin {
 
   const title = config.title ?? "時空捷點概念原型"
   const description = config.description ?? ''
-  const favicon = config.icons?.icon ?? ''
+  const favicon = config.icons?.icon ?? './faviocn.ico'
   const socialImage = config.openGraph?.image ?? ''
   const language = sanitizeHtmlValue(config.language) || 'en'
   const googleAnalyticsId = sanitizeHtmlValue(config.analytics?.googleAnalyticsId)
