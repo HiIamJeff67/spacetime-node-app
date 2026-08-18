@@ -6,9 +6,11 @@ entry, recommendation, and redemption flow.
 ## Local setup
 
 ```bash
-npm install
+nvm use
+corepack enable
+pnpm install --frozen-lockfile
 cp .env.example .env.local
-npm run dev
+pnpm run dev
 ```
 
 Set `VITE_API_BASE_URL` to the backend's public URL (for local development,

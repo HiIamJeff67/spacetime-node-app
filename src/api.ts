@@ -37,6 +37,15 @@ export type Recommendation = {
   reasons: string[]
   copy_source: string
   decision_latency_ms: number
+  candidates: RecommendationCandidate[]
+}
+
+export type RecommendationCandidate = {
+  offer_id: string
+  vector_score: number
+  rule_score: number
+  eligible: boolean
+  reasons: string[]
 }
 
 export type Redemption = {
@@ -102,10 +111,14 @@ export function updateUserPreferences(preferences: UserPreferencesUpdate, userId
   })
 }
 
-export function createEntryEvent(stationId: string, userIdHash = DEMO_USER_ID_HASH) {
+export function createEntryEvent(stationId: string, userIdHash = DEMO_USER_ID_HASH, traceId: string = crypto.randomUUID()) {
   return request<{ journey_id: string }>('/v1/entry-events', {
     method: 'POST',
-    body: JSON.stringify({ user_id_hash: userIdHash, station_id: stationId }),
+    body: JSON.stringify({
+      user_id_hash: userIdHash,
+      station_id: stationId,
+      request_context: { trace_id: traceId },
+    }),
   })
 }
 
@@ -113,7 +126,13 @@ export function getLatestRecommendation(journeyId: string) {
   return request<Recommendation>(`/v1/recommendations/latest?journey_id=${encodeURIComponent(journeyId)}`)
 }
 
-export function createRedemption(offerId: string, journeyId: string, idempotencyKey: string, userIdHash = DEMO_USER_ID_HASH) {
+export function createRedemption(
+  offerId: string,
+  journeyId: string,
+  idempotencyKey: string,
+  userIdHash = DEMO_USER_ID_HASH,
+  traceId: string = crypto.randomUUID(),
+) {
   return request<{ redemption: Redemption & { status: Redemption['status'] | number } }>('/v1/redemptions', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
@@ -121,9 +140,30 @@ export function createRedemption(offerId: string, journeyId: string, idempotency
       user_id_hash: userIdHash,
       offer_id: offerId,
       idempotency_key: idempotencyKey,
-      request_context: { journey_id: journeyId },
+      request_context: { journey_id: journeyId, trace_id: traceId },
     }),
   }).then(result => ({ redemption: normalizeRedemption(result.redemption) }))
+}
+
+export function recordRecommendationEvent(input: {
+  eventType: 'recommendation.impressed.v1' | 'recommendation.clicked.v1'
+  recommendationId: string
+  journeyId: string
+  offerId: string
+  traceId: string
+  userIdHash?: string
+}) {
+  return request<{ event_id: string }>('/v1/recommendation-events', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id_hash: input.userIdHash || DEMO_USER_ID_HASH,
+      recommendation_id: input.recommendationId,
+      offer_id: input.offerId,
+      event_type: input.eventType,
+      surface: 'web',
+      request_context: { journey_id: input.journeyId, trace_id: input.traceId },
+    }),
+  })
 }
 
 export function getRedemption(redemptionId: string) {

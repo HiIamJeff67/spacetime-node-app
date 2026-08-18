@@ -1,12 +1,13 @@
-FROM node:20-alpine AS build
+FROM node:22.23.1-alpine AS build
 
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --no-audit --no-fund
+RUN corepack enable
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 COPY . .
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-RUN node node_modules/typescript/bin/tsc --noEmit && node node_modules/vite/bin/vite.js build
+RUN pnpm exec tsc --noEmit && pnpm run build
 
 FROM nginx:1.27-alpine
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import bannerImg from '@/imports/banner.jpg'
 import featureGridImg from '@/imports/功能圖.jpg'
 import logoImg from '@/imports/logo.png'
@@ -12,6 +12,7 @@ import {
   getLatestRecommendation,
   getRedemption,
   getUserProfile,
+  recordRecommendationEvent,
   registerNotificationSubscription,
   revokeNotificationSubscription,
   type Recommendation,
@@ -496,17 +497,20 @@ function OfferDetail({
   onBack,
   onRedeem,
   redemption,
+  recommendation,
   redeeming = false,
 }: {
   offer: Offer
   onBack: () => void
   onRedeem?: () => Promise<boolean>
   redemption?: Redemption | null
+  recommendation?: Recommendation | null
   redeeming?: boolean
 }) {
   const [claimed, setClaimed] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const selectedCandidate = recommendation?.candidates.find(candidate => candidate.offer_id === offer.id)
 
   useEffect(() => {
     if (redemption?.status === 'REDEMPTION_STATUS_SUCCEEDED' || redemption?.status === 'REDEMPTION_STATUS_VERIFIED') {
@@ -629,6 +633,25 @@ function OfferDetail({
             {offer.brand}｜{offer.title}
           </h2>
           <p className="text-[14px] font-medium mb-4 text-center" style={{ color: '#d0272a' }}>使用期限：{offer.expiry.replace(/\//g, '-')}</p>
+
+          {recommendation && recommendation.offer_id === offer.id && (
+            <section className="mb-5 rounded-xl border border-[#b8dfcf] bg-[#effaf4] px-3 py-3">
+              <h3 className="text-[14px] font-bold mb-2" style={{ color: '#16794c' }}>推薦依據</h3>
+              <div className="space-y-1.5">
+                {recommendation.reasons.map(reason => (
+                  <p key={reason} className="text-[12px] text-gray-700 leading-relaxed flex gap-1.5">
+                    <span style={{ color: '#00a05a' }}>✓</span>
+                    <span>{reason}</span>
+                  </p>
+                ))}
+              </div>
+              {selectedCandidate && (
+                <p className="text-[11px] text-gray-500 mt-2">
+                  已評估 {recommendation.candidates.length} 個候選，規則分數 {selectedCandidate.rule_score.toFixed(2)}。
+                </p>
+              )}
+            </section>
+          )}
 
           {/* 領券 button */}
           <button
@@ -943,7 +966,7 @@ function recommendationToOffer(recommendation: Recommendation): Offer {
     unit: '捷運點',
     content: recommendation.body,
     notes: DEFAULT_NOTES,
-    steps: recommendation.reasons,
+    steps: [],
   }
 }
 
@@ -952,6 +975,7 @@ export default function App() {
   const [userPrefs, setUserPrefs] = useState<{ stations: string[]; cats: string[] }>({ stations: [], cats: [] })
   const [recommendation, setRecommendation] = useState<Recommendation | null>(null)
   const [journeyId, setJourneyId] = useState('')
+  const [journeyTraceId, setJourneyTraceId] = useState('')
   const [redemption, setRedemption] = useState<Redemption | null>(null)
   const [redeeming, setRedeeming] = useState(false)
   const [syncing, setSyncing] = useState(false)
@@ -962,6 +986,7 @@ export default function App() {
   const [bannerIndex, setBannerIndex] = useState(3)
   const [showHomeScreen, setShowHomeScreen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
+  const impressedRecommendationId = useRef('')
   const totalBanners = 9
 
   const kosmedOffer = ALL_OFFERS.find(o => o.id === 'o2')!
@@ -977,8 +1002,24 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!recommendation || !journeyId || !journeyTraceId || impressedRecommendationId.current === recommendation.recommendation_id) return
+    impressedRecommendationId.current = recommendation.recommendation_id
+    void recordRecommendationEvent({
+      eventType: 'recommendation.impressed.v1',
+      recommendationId: recommendation.recommendation_id,
+      journeyId,
+      offerId: recommendation.offer_id,
+      traceId: journeyTraceId,
+    }).catch(() => {
+      // Engagement telemetry is best-effort and must not block the demo flow.
+    })
+  }, [journeyId, journeyTraceId, recommendation])
+
   async function loadRecommendation(stationId: string) {
-    const entry = await createEntryEvent(stationId)
+    const traceId = crypto.randomUUID()
+    setJourneyTraceId(traceId)
+    const entry = await createEntryEvent(stationId, DEMO_USER_ID_HASH, traceId)
     setJourneyId(entry.journey_id)
     let lastError: unknown
     for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -992,6 +1033,20 @@ export default function App() {
       }
     }
     throw lastError instanceof Error ? lastError : new Error('推薦尚未準備完成')
+  }
+
+  function openOffer(offer: Offer) {
+    setDetailOffer(offer)
+    if (!recommendation || offer.id !== recommendation.offer_id || !journeyId || !journeyTraceId) return
+    void recordRecommendationEvent({
+      eventType: 'recommendation.clicked.v1',
+      recommendationId: recommendation.recommendation_id,
+      journeyId,
+      offerId: offer.id,
+      traceId: journeyTraceId,
+    }).catch(() => {
+      // Engagement telemetry is best-effort and must not block opening the offer.
+    })
   }
 
   async function completeOnboarding(result: OnboardingResult) {
@@ -1053,7 +1108,7 @@ export default function App() {
     setApiMessage('正在建立兌換…')
     const idempotencyKey = `web-${recommendation.recommendation_id}`
     try {
-      const result = await createRedemption(recommendation.offer_id, journeyId, idempotencyKey, DEMO_USER_ID_HASH)
+      const result = await createRedemption(recommendation.offer_id, journeyId, idempotencyKey, DEMO_USER_ID_HASH, journeyTraceId)
       setRedemption(result.redemption)
       try {
         const persisted = await getRedemption(result.redemption.redemption_id)
@@ -1092,6 +1147,7 @@ export default function App() {
             onBack={() => setDetailOffer(null)}
             onRedeem={recommendation && detailOffer.id === recommendation.offer_id ? redeemRecommendation : undefined}
             redemption={recommendation && detailOffer.id === recommendation.offer_id ? redemption : null}
+            recommendation={recommendation && detailOffer.id === recommendation.offer_id ? recommendation : null}
             redeeming={redeeming}
           />
         )}
@@ -1346,7 +1402,7 @@ export default function App() {
                         依您抵達的站點 <span className="text-sm font-bold" style={{ color: '#3179af' }}>{arriving}</span> 及 <span className="text-sm font-bold" style={{ color: '#3179af' }}>消費偏好</span> 為您推薦
                       </p>
                       {visibleOffers.map(offer => (
-                        <OfferCard key={offer.id} offer={offer} arriving={arriving} onOpen={() => setDetailOffer(offer)} />
+                        <OfferCard key={offer.id} offer={offer} arriving={arriving} onOpen={() => openOffer(offer)} />
                       ))}
                       {visibleOffers.length === 0 && (
                         <div className="text-center text-gray-400 text-sm py-8">目前無符合的優惠</div>
