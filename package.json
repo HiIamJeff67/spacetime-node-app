@@ -10,7 +10,7 @@
   },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
+    "build": "node scripts/print-build-env.mjs && vite build",
     "preview": "vite preview",
     "format": "oxfmt"
   },
