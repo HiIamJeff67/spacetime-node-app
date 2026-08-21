@@ -63,6 +63,43 @@ export type NotificationSubscription = {
   channel: string
 }
 
+export type BrowserPushSubscription = {
+  endpoint: string
+  p256dh: string
+  auth: string
+}
+
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
+
+function base64UrlToBytes(value: string) {
+  const padding = '='.repeat((4 - (value.length % 4)) % 4)
+  const normalized = (value + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const decoded = window.atob(normalized)
+  return Uint8Array.from(decoded, character => character.charCodeAt(0))
+}
+
+export async function registerBrowserPushSubscription(): Promise<BrowserPushSubscription | null> {
+  if (!VAPID_PUBLIC_KEY || !('serviceWorker' in navigator) || !('PushManager' in window)) return null
+  const registration = await navigator.serviceWorker.register('/sw.js')
+  const subscription = await registration.pushManager.getSubscription()
+    || await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: base64UrlToBytes(VAPID_PUBLIC_KEY),
+    })
+  const json = subscription.toJSON()
+  if (!json.endpoint || !json.keys?.p256dh || !json.keys.auth) {
+    throw new Error('瀏覽器未提供完整 Web Push subscription')
+  }
+  return { endpoint: json.endpoint, p256dh: json.keys.p256dh, auth: json.keys.auth }
+}
+
+export async function unregisterBrowserPushSubscription() {
+  if (!('serviceWorker' in navigator)) return
+  const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+  const subscription = await registration?.pushManager.getSubscription()
+  if (subscription) await subscription.unsubscribe()
+}
+
 const REDEMPTION_STATUS_BY_NUMBER: Record<number, Redemption['status']> = {
   0: 'REDEMPTION_STATUS_UNSPECIFIED',
   1: 'REDEMPTION_STATUS_PENDING',

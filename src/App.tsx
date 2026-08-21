@@ -12,9 +12,11 @@ import {
   getLatestRecommendation,
   getRedemption,
   getUserProfile,
+  registerBrowserPushSubscription,
   recordRecommendationEvent,
   registerNotificationSubscription,
   revokeNotificationSubscription,
+  unregisterBrowserPushSubscription,
   type Recommendation,
   type Redemption,
   updateUserPreferences,
@@ -1092,15 +1094,17 @@ export default function App() {
         notification_start_local: notificationWindow.start,
         notification_end_local: notificationWindow.end,
       })
-      const subscription = await registerNotificationSubscription({
-        // The demo intentionally uses a deterministic mock Web Push endpoint.
-        // A VAPID/FCM adapter can replace this payload without changing the API.
-        endpoint: `https://demo.invalid/spacetime-node/${crypto.randomUUID()}`,
-        p256dh: 'demo-p256dh',
-        auth: 'demo-auth',
-        user_agent: navigator.userAgent,
-      })
-      setNotificationSubscriptionId(subscription.subscription_id)
+      if (result.pushTiming) {
+        const browserSubscription = await registerBrowserPushSubscription()
+        const subscription = await registerNotificationSubscription(browserSubscription || {
+          // Keep the deterministic mock when VAPID is not configured for the demo.
+          endpoint: `https://demo.invalid/spacetime-node/${crypto.randomUUID()}`,
+          p256dh: 'demo-p256dh',
+          auth: 'demo-auth',
+          user_agent: navigator.userAgent,
+        })
+        setNotificationSubscriptionId(subscription.subscription_id)
+      }
       // Use the station selected during onboarding; R04 remains the fallback for skip/demo mode.
       await loadRecommendation(result.stations[0] || 'R04')
       setApiMessage('已同步設定並啟用展示推播，這是依照您的偏好產生的推薦。')
@@ -1116,6 +1120,7 @@ export default function App() {
     if (!notificationSubscriptionId) return
     try {
       await revokeNotificationSubscription(notificationSubscriptionId)
+      await unregisterBrowserPushSubscription()
       setNotificationSubscriptionId('')
       setApiMessage('展示推播已停用。')
     } catch (error) {

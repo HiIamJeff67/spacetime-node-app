@@ -16,6 +16,8 @@ pnpm run dev
 Set `VITE_API_BASE_URL` to the backend's public URL (for local development,
 `http://localhost:8000`). This is browser-visible configuration: do not put
 service credentials, device tokens, or other secrets in `.env.local`.
+Set `VITE_VAPID_PUBLIC_KEY` to the backend's matching public VAPID key to enable
+real browser Web Push; leave it empty to keep the deterministic mock flow.
 The public gateway serves the user, recommendation, and redemption routes on
 the same origin.
 
