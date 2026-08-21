@@ -1095,15 +1095,27 @@ export default function App() {
         notification_end_local: notificationWindow.end,
       })
       if (result.pushTiming) {
-        const browserSubscription = await registerBrowserPushSubscription()
-        const subscription = await registerNotificationSubscription(browserSubscription || {
-          // Keep the deterministic mock when VAPID is not configured for the demo.
-          endpoint: `https://demo.invalid/spacetime-node/${crypto.randomUUID()}`,
-          p256dh: 'demo-p256dh',
-          auth: 'demo-auth',
-          user_agent: navigator.userAgent,
-        })
-        setNotificationSubscriptionId(subscription.subscription_id)
+        let browserPushAvailable = true
+        let browserSubscription = null
+        try {
+          browserSubscription = await registerBrowserPushSubscription()
+        } catch (error) {
+          browserPushAvailable = false
+          console.warn('[push] Browser notification permission is unavailable:', error)
+        }
+        if (browserSubscription) {
+          const subscription = await registerNotificationSubscription(browserSubscription)
+          setNotificationSubscriptionId(subscription.subscription_id)
+        } else if (browserPushAvailable) {
+          const subscription = await registerNotificationSubscription({
+            // Keep the deterministic mock when VAPID is not configured for the demo.
+            endpoint: `https://demo.invalid/spacetime-node/${crypto.randomUUID()}`,
+            p256dh: 'demo-p256dh',
+            auth: 'demo-auth',
+            user_agent: navigator.userAgent,
+          })
+          setNotificationSubscriptionId(subscription.subscription_id)
+        }
       }
       // Use the station selected during onboarding; R04 remains the fallback for skip/demo mode.
       await loadRecommendation(result.stations[0] || 'R04')
