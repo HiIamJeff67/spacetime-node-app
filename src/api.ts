@@ -146,7 +146,7 @@ export function createRedemption(
 }
 
 export function recordRecommendationEvent(input: {
-  eventType: 'recommendation.impressed.v1' | 'recommendation.clicked.v1'
+  eventType: 'recommendation.impressed.v1' | 'recommendation.clicked.v1' | 'recommendation.dismissed.v1'
   recommendationId: string
   journeyId: string
   offerId: string

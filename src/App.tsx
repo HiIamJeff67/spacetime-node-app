@@ -496,6 +496,7 @@ function OfferDetail({
   offer,
   onBack,
   onRedeem,
+  onDismiss,
   redemption,
   recommendation,
   redeeming = false,
@@ -503,6 +504,7 @@ function OfferDetail({
   offer: Offer
   onBack: () => void
   onRedeem?: () => Promise<boolean>
+  onDismiss?: () => void
   redemption?: Redemption | null
   recommendation?: Recommendation | null
   redeeming?: boolean
@@ -649,6 +651,14 @@ function OfferDetail({
                 <p className="text-[11px] text-gray-500 mt-2">
                   已評估 {recommendation.candidates.length} 個候選，規則分數 {selectedCandidate.rule_score.toFixed(2)}。
                 </p>
+              )}
+              {onDismiss && (
+                <button
+                  onClick={onDismiss}
+                  className="mt-3 text-[12px] text-gray-500 underline"
+                >
+                  對這類優惠沒興趣
+                </button>
               )}
             </section>
           )}
@@ -1049,6 +1059,21 @@ export default function App() {
     })
   }
 
+  function dismissRecommendation() {
+    if (!recommendation || !journeyId || !journeyTraceId) return
+    void recordRecommendationEvent({
+      eventType: 'recommendation.dismissed.v1',
+      recommendationId: recommendation.recommendation_id,
+      journeyId,
+      offerId: recommendation.offer_id,
+      traceId: journeyTraceId,
+    }).catch(() => {
+      // Feedback telemetry is best-effort and must not block the demo flow.
+    })
+    setDetailOffer(null)
+    setApiMessage('已記錄您的偏好，下一次推薦會降低這類優惠的權重。')
+  }
+
   async function completeOnboarding(result: OnboardingResult) {
     setSyncing(true)
     setApiMessage('正在同步您的個人化設定…')
@@ -1145,6 +1170,7 @@ export default function App() {
             offer={detailOffer}
             onBack={() => setDetailOffer(null)}
             onRedeem={recommendation && detailOffer.id === recommendation.offer_id ? redeemRecommendation : undefined}
+            onDismiss={recommendation && detailOffer.id === recommendation.offer_id ? dismissRecommendation : undefined}
             redemption={recommendation && detailOffer.id === recommendation.offer_id ? redemption : null}
             recommendation={recommendation && detailOffer.id === recommendation.offer_id ? recommendation : null}
             redeeming={redeeming}
