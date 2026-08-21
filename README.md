@@ -27,6 +27,10 @@ the same origin.
 2. The app saves preferences, creates an entry event, and polls the latest recommendation.
 3. Open the recommended offer, redeem it once, and read the persisted redemption status.
 
+The current demo station catalog intentionally exposes the seeded `R04` (信義安和)
+and `R03` (台北101／世貿) stations. The selector will expand when the backend
+provides the corresponding station and offer catalog through an API.
+
 When the backend is unavailable, the static demo content remains visible so the
 UI can still be previewed. Public HTTPS hosting and backend CORS configuration
 are tracked separately in SCRUM-42.

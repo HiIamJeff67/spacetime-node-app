@@ -106,7 +106,7 @@ function LineBadge({ line, number, bg }: { line?: string; number: string; bg: st
 // ─── Onboarding ──────────────────────────────────────────────────────────────
 
 // id, line code label, station name, line color
-const STATIONS: { code: string; name: string; color: string }[] = [
+const ALL_STATIONS: { code: string; name: string; color: string }[] = [
   { code: 'R28', name: '淡水', color: '#e3001b' },
   { code: 'R27', name: '紅樹林', color: '#e3001b' },
   { code: 'R26', name: '竹圍', color: '#e3001b' },
@@ -131,8 +131,8 @@ const STATIONS: { code: string; name: string; color: string }[] = [
   { code: 'R07/O06', name: '東門', color: '#e3001b' },
   { code: 'R06', name: '古亭', color: '#e3001b' },
   { code: 'R05', name: '公館', color: '#e3001b' },
-  { code: 'R04', name: '萬隆', color: '#e3001b' },
-  { code: 'R03', name: '景美', color: '#e3001b' },
+  { code: 'R04', name: '信義安和', color: '#e3001b' },
+  { code: 'R03', name: '台北101／世貿', color: '#e3001b' },
   { code: 'R02', name: '大坪林', color: '#e3001b' },
   { code: 'R01', name: '新店', color: '#e3001b' },
   { code: 'G19', name: '松山', color: '#008659' },
@@ -196,6 +196,12 @@ const STATIONS: { code: string; name: string; color: string }[] = [
   { code: 'BL02', name: '永寧', color: '#0070bd' },
   { code: 'BL01', name: '頂埔', color: '#0070bd' },
 ]
+
+// The demo only exposes stations with seeded offers. The full catalog can be
+// re-enabled once station and offer data are provided by the backend API.
+const DEMO_STATION_CODES = new Set(['R04', 'R03'])
+const STATIONS = ALL_STATIONS.filter(station => DEMO_STATION_CODES.has(station.code))
+
 const FOOD_CATS = [
   { id: 'fast', label: '連鎖速食', emoji: '🍔' },
   { id: 'bakery', label: '烘焙甜點', emoji: '🥐' },
@@ -1398,9 +1404,12 @@ export default function App() {
                 </div>
               )
 
-              // arriving station name (first selected, fallback to 淡水)
-              const arrivingCode = userPrefs.stations[0] ?? 'R28'
-              const arriving = STATIONS.find(s => s.code === arrivingCode)?.name ?? '淡水'
+              // arriving station name (first selected, fallback to 信義安和)
+              const arrivingCode = userPrefs.stations[0] ?? 'R04'
+              const arriving = STATIONS.find(s => s.code === arrivingCode)?.name ?? '信義安和'
+              const arrivingStation = STATIONS.find(s => s.code === arrivingCode) ?? STATIONS[0]
+              const arrivingLine = arrivingStation.code.match(/^[A-Z]+/)?.[0] ?? 'R'
+              const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
               // filter by user's cats; if none chosen show all
               const cats = userPrefs.cats.length > 0 ? userPrefs.cats : ALL_OFFERS.map(o => o.cat)
               const filtered = ALL_OFFERS.filter(o => cats.includes(o.cat))
@@ -1415,8 +1424,8 @@ export default function App() {
                     <>
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <LineBadge line="R" number="28" bg="#e3001b" />
-                          <span className="text-base font-semibold text-gray-800">淡水</span>
+                          <LineBadge line={arrivingLine} number={arrivingNumber} bg="#e3001b" />
+                          <span className="text-base font-semibold text-gray-800">{arriving}</span>
                         </div>
                         <IconChevronUp />
                       </div>
