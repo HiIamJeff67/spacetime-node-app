@@ -20,6 +20,8 @@ type BluetoothScanner = EventTarget & {
   }) => Promise<BluetoothLEScan>
 }
 
+const BEACON_SCAN_TIMEOUT_MS = 15_000
+
 function scanner(): BluetoothScanner | null {
   if (!window.isSecureContext) return null
   const bluetooth = (navigator as Navigator & { bluetooth?: BluetoothScanner }).bluetooth
@@ -46,7 +48,10 @@ function parseIBeacon(data: DataView): BeaconObservation | null {
   }
 }
 
-export async function startBeaconScan(onDetected: (observation: BeaconObservation) => void) {
+export async function startBeaconScan(
+  onDetected: (observation: BeaconObservation) => void,
+  onTimeout?: (error: Error) => void,
+) {
   const bluetooth = scanner()
   if (!bluetooth) {
     throw new Error(window.isSecureContext ? '此 Chrome 環境不支援 Beacon 廣播掃描' : 'Beacon 掃描需要 HTTPS')
@@ -54,9 +59,11 @@ export async function startBeaconScan(onDetected: (observation: BeaconObservatio
 
   let scan: BluetoothLEScan | null = null
   let stopped = false
+  let timeoutId: number | undefined
   const stop = () => {
     if (stopped) return
     stopped = true
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId)
     scan?.stop()
     bluetooth.removeEventListener('advertisementreceived', handleAdvertisement)
   }
@@ -86,5 +93,9 @@ export async function startBeaconScan(onDetected: (observation: BeaconObservatio
     throw error
   }
   if (stopped) scan.stop()
+  timeoutId = window.setTimeout(() => {
+    stop()
+    onTimeout?.(new Error('掃描逾時，沒有收到符合 iBeacon 格式的廣播'))
+  }, BEACON_SCAN_TIMEOUT_MS)
   return stop
 }

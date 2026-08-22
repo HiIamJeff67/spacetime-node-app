@@ -1325,13 +1325,19 @@ export default function App() {
     setBeaconScanning(true)
     setApiMessage('請在 Chrome 的權限視窗允許 Beacon 廣播掃描…')
     try {
-      const stop = await startBeaconScan(observation => {
-        if (beaconHandledRef.current) return
-        beaconHandledRef.current = true
-        setBeaconObservation(observation)
-        setBeaconScanning(false)
-        void applyBeaconObservation(observation)
-      })
+      const stop = await startBeaconScan(
+        observation => {
+          if (beaconHandledRef.current) return
+          beaconHandledRef.current = true
+          setBeaconObservation(observation)
+          setBeaconScanning(false)
+          void applyBeaconObservation(observation)
+        },
+        error => {
+          setBeaconScanning(false)
+          setApiMessage(`${error.message}，請確認附近有實體 iBeacon 廣播。`)
+        },
+      )
       beaconStopRef.current = stop
     } catch (error) {
       setBeaconScanning(false)
