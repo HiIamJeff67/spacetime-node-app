@@ -577,6 +577,7 @@ function OfferDetail({
   offer,
   onBack,
   onRedeem,
+  onClaimed,
   onDismiss,
   redemption,
   recommendation,
@@ -585,6 +586,7 @@ function OfferDetail({
   offer: Offer
   onBack: () => void
   onRedeem?: () => Promise<boolean>
+  onClaimed?: (offerId: string) => void
   onDismiss?: () => void
   redemption?: Redemption | null
   recommendation?: Recommendation | null
@@ -608,6 +610,7 @@ function OfferDetail({
       if (!success) return
     }
     setClaimed(true)
+    onClaimed?.(offer.id)
     setShowSuccess(true)
   }
 
@@ -1103,6 +1106,7 @@ export default function App() {
   const [journeyId, setJourneyId] = useState('')
   const [journeyTraceId, setJourneyTraceId] = useState('')
   const [redemption, setRedemption] = useState<Redemption | null>(null)
+  const [claimedOfferIds, setClaimedOfferIds] = useState<string[]>([])
   const [redeeming, setRedeeming] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [apiMessage, setApiMessage] = useState('')
@@ -1287,6 +1291,10 @@ export default function App() {
     }
   }
 
+  function markOfferClaimed(offerId: string) {
+    setClaimedOfferIds(current => current.includes(offerId) ? current : [...current, offerId])
+  }
+
   return (
     <div className="min-h-screen bg-gray-200 flex justify-center items-center py-8">
       {/* Phone frame — iPhone 14 Pro 390×844 */}
@@ -1308,6 +1316,7 @@ export default function App() {
             offer={detailOffer}
             onBack={() => setDetailOffer(null)}
             onRedeem={recommendation && detailOffer.id === recommendation.offer_id ? redeemRecommendation : undefined}
+            onClaimed={markOfferClaimed}
             onDismiss={recommendation && detailOffer.id === recommendation.offer_id ? dismissRecommendation : undefined}
             redemption={recommendation && detailOffer.id === recommendation.offer_id ? redemption : null}
             recommendation={recommendation && detailOffer.id === recommendation.offer_id ? recommendation : null}
@@ -1530,8 +1539,10 @@ export default function App() {
               const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
               // filter by user's cats; if none chosen show all
               const cats = userPrefs.cats.length > 0 ? userPrefs.cats : ALL_OFFERS.map(o => o.cat)
-              const filtered = ALL_OFFERS.filter(o => cats.includes(o.cat))
-              const apiOffer = recommendation ? recommendationToOffer(recommendation) : null
+              const filtered = ALL_OFFERS.filter(o => cats.includes(o.cat) && !claimedOfferIds.includes(o.id))
+              const apiOffer = recommendation && !claimedOfferIds.includes(recommendation.offer_id)
+                ? recommendationToOffer(recommendation)
+                : null
               const visibleOffers = apiOffer
                 ? [apiOffer, ...filtered.filter(offer => offer.id !== apiOffer.id)]
                 : filtered
