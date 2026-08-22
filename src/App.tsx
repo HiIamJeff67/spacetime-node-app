@@ -1377,19 +1377,23 @@ export default function App() {
     })
   }
 
-  function dismissRecommendation(offerId = recommendation?.offer_id || '') {
+  async function dismissRecommendation(offerId = recommendation?.offer_id || '') {
     if (!recommendation || !journeyId || !journeyTraceId) return
-    void recordRecommendationEvent({
-      eventType: 'recommendation.dismissed.v1',
-      recommendationId: recommendation.recommendation_id,
-      journeyId,
-      offerId,
-      traceId: journeyTraceId,
-    }).catch(() => {
-      // Feedback telemetry is best-effort and must not block the demo flow.
-    })
     setDetailOffer(null)
-    setApiMessage('已記錄您的偏好，下一次推薦會降低這類優惠的權重。')
+    try {
+      await recordRecommendationEvent({
+        eventType: 'recommendation.dismissed.v1',
+        recommendationId: recommendation.recommendation_id,
+        journeyId,
+        offerId,
+        traceId: journeyTraceId,
+      })
+      const refreshed = await getLatestRecommendation(journeyId)
+      setRecommendation(refreshed)
+      setApiMessage('已移除這張優惠券，推薦清單已更新。')
+    } catch {
+      setApiMessage('已記錄您的偏好，但推薦清單更新失敗，請稍後重試。')
+    }
   }
 
   async function completeOnboarding(result: OnboardingResult) {
