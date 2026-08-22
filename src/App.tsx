@@ -1242,6 +1242,12 @@ export default function App() {
     }
   }
 
+  function skipRecommendation() {
+    setOnboardingDone(true)
+    setSyncing(false)
+    setApiMessage('推薦服務目前準備中，先顯示展示優惠。')
+  }
+
   async function disableNotifications() {
     if (!notificationSubscriptionId) return
     try {
@@ -1319,6 +1325,9 @@ export default function App() {
             <div className="rounded-2xl bg-white px-6 py-5 text-center shadow-xl">
               <div className="mx-auto mb-2 h-7 w-7 animate-spin rounded-full border-2 border-gray-200 border-t-[#00a05a]" />
               <p className="text-sm font-medium text-gray-700">正在準備個人化推薦…</p>
+              <button onClick={skipRecommendation} className="mt-3 text-sm font-semibold text-[#1688b8] underline">
+                先進入 App
+              </button>
             </div>
           </div>
         )}
