@@ -927,17 +927,27 @@ function OfferCard({ offer, arriving, onOpen }: { offer: Offer; arriving: string
 
 // ─── Home Screen with Push Notification ─────────────────────────────────────
 
-function HomeScreen({ showNotif, onNotifTap, onNotifDismiss }: { showNotif: boolean; onNotifTap: () => void; onNotifDismiss: () => void }) {
+function HomeScreen({ showNotif, onNotifTap, onNotifDismiss, onReturnToApp }: { showNotif: boolean; onNotifTap: () => void; onNotifDismiss: () => void; onReturnToApp: () => void }) {
   const [expanded, setExpanded] = useState(false)
+  const touchStartY = useRef<number | null>(null)
   const now = new Date()
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const dateStr = `${now.getMonth() + 1}月${now.getDate()}日 週${'日一二三四五六'[now.getDay()]}`
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{
+    <div
+      className="absolute inset-0 flex flex-col"
+      onTouchStart={event => { touchStartY.current = event.touches[0]?.clientY ?? null }}
+      onTouchEnd={event => {
+        const startY = touchStartY.current
+        touchStartY.current = null
+        if (startY !== null && startY - (event.changedTouches[0]?.clientY ?? startY) > 48) onReturnToApp()
+      }}
+      style={{
       zIndex: 100,
       background: 'linear-gradient(160deg, #1a3a2a 0%, #0d2318 40%, #0a1a10 100%)',
-    }}>
+      }}
+    >
       {/* Subtle bokeh blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute rounded-full opacity-20" style={{ width: 260, height: 260, top: 80, left: -60, background: 'radial-gradient(circle, #00c070, transparent 70%)' }} />
@@ -1022,7 +1032,10 @@ function HomeScreen({ showNotif, onNotifTap, onNotifDismiss }: { showNotif: bool
 
       {/* Home indicator hint */}
       <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2">
-        <span className="text-white/40 text-[11px]">向上滑動以解鎖</span>
+        <button onClick={onReturnToApp} className="rounded-full border border-white/25 bg-black/20 px-4 py-1.5 text-[12px] font-medium text-white/80">
+          返回 App
+        </button>
+        <span className="text-white/40 text-[11px]">向上滑動或點擊返回 App</span>
         <div className="w-24 h-1 rounded-full bg-white/30" />
       </div>
     </div>
@@ -1279,6 +1292,7 @@ export default function App() {
             showNotif={showNotif}
             onNotifTap={() => { setShowHomeScreen(false); setDetailOffer(kosmedOffer) }}
             onNotifDismiss={() => setShowHomeScreen(false)}
+            onReturnToApp={() => setShowHomeScreen(false)}
           />
         )}
 
