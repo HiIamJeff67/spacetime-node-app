@@ -27,11 +27,9 @@ the same origin.
 2. The app saves preferences, creates an entry event, and polls the latest recommendation.
 3. Open the recommended offer, redeem it once, and read the persisted redemption status.
 
-The demo station selector exposes the catalog seeded by the backend migration:
-`R04` (信義安和), `R03` (台北101／世貿), `R09` (台大醫院), `G12` (西門),
-`G07` (公館), `BL18` (市政府), `BL12` (台北車站), and `O09` (行天宮).
-The backend must apply `000011_demo_station_catalog_expansion.sql` before using
-the additional stations in the deployed demo.
+The demo station selector exposes the full 122-station catalog from the backend
+Beacon migration. The backend must apply `000012_beacon_station_catalog.sql`
+before using the complete station list in the deployed demo.
 
 When the backend is unavailable, the static demo content remains visible so the
 UI can still be previewed. Public HTTPS hosting and backend CORS configuration
