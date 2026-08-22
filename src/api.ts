@@ -38,6 +38,7 @@ export type Recommendation = {
   copy_source: string
   decision_latency_ms: number
   candidates: RecommendationCandidate[]
+  offers?: RecommendedOffer[]
 }
 
 export type RecommendationCandidate = {
@@ -46,6 +47,16 @@ export type RecommendationCandidate = {
   rule_score: number
   eligible: boolean
   reasons: string[]
+}
+
+export type RecommendedOffer = {
+  offer_id: string
+  title: string
+  body: string
+  reasons: string[]
+  score: number
+  points_cost: number
+  station_id: string
 }
 
 export type Redemption = {

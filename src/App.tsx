@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import * as L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import bannerImg from '@/imports/banner.jpg'
 import featureGridImg from '@/imports/功能圖.jpg'
 import logoImg from '@/imports/logo.png'
@@ -17,6 +19,7 @@ import {
   revokeNotificationSubscription,
   unregisterBrowserPushSubscription,
   type Recommendation,
+  type RecommendedOffer,
   type Redemption,
   updateUserPreferences,
 } from './api'
@@ -519,7 +522,6 @@ const DEFAULT_NOTES = [
   '優惠券具使用期限，逾期即無法使用且不得要求返還捷運點。',
   '本券使用期限：捷運點兌換優惠券起至次月底止。',
 ]
-const DEFAULT_STEPS: string[] = []
 
 function OfferDetail({
   offer,
@@ -668,11 +670,11 @@ function OfferDetail({
           </h2>
           <p className="text-[14px] font-medium mb-4 text-center" style={{ color: '#d0272a' }}>使用期限：{offer.expiry.replace(/\//g, '-')}</p>
 
-          {recommendation && recommendation.offer_id === offer.id && (
+          {recommendation && selectedCandidate && (
             <section className="mb-5 rounded-xl border border-[#b8dfcf] bg-[#effaf4] px-3 py-3">
               <h3 className="text-[14px] font-bold mb-2" style={{ color: '#16794c' }}>推薦依據</h3>
               <div className="space-y-1.5">
-                {recommendation.reasons.map(reason => (
+                {(offer.id === recommendation.offer_id ? recommendation.reasons : selectedCandidate.reasons).map(reason => (
                   <p key={reason} className="text-[12px] text-gray-700 leading-relaxed flex gap-1.5">
                     <span style={{ color: '#00a05a' }}>✓</span>
                     <span>{formatReason(reason)}</span>
@@ -876,6 +878,108 @@ function OfferCard({ offer, arriving, onOpen }: { offer: Offer; arriving: string
   )
 }
 
+type DemoMapPoint = {
+  code: string
+  latitude: number
+  longitude: number
+}
+
+// Demo-only locations for stations with seeded offers. Production location still comes from Beacon.
+const DEMO_MAP_POINTS: DemoMapPoint[] = [
+  { code: 'R02', latitude: 25.0330, longitude: 121.5700 },
+  { code: 'R03', latitude: 25.0333, longitude: 121.5647 },
+  { code: 'R04', latitude: 25.0330, longitude: 121.5536 },
+  { code: 'R09', latitude: 25.0423, longitude: 121.5163 },
+  { code: 'BL12', latitude: 25.0464, longitude: 121.5179 },
+  { code: 'G12', latitude: 25.0417, longitude: 121.5087 },
+  { code: 'G07', latitude: 25.0143, longitude: 121.5344 },
+  { code: 'BL18', latitude: 25.0410, longitude: 121.5652 },
+  { code: 'O09', latitude: 25.0640, longitude: 121.5330 },
+  { code: 'R11', latitude: 25.0524, longitude: 121.5205 },
+]
+
+function DemoMapPicker({ initialCode, onClose, onApply }: { initialCode: string; onClose: () => void; onApply: (code: string) => void }) {
+  const [selectedCode, setSelectedCode] = useState(initialCode || DEMO_MAP_POINTS[0].code)
+  const mapElementRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<L.Map | null>(null)
+  const selectedPoint = DEMO_MAP_POINTS.find(point => point.code === selectedCode) || DEMO_MAP_POINTS[0]
+  const selectedStation = STATIONS.find(station => station.code === selectedPoint.code)
+
+  useEffect(() => {
+    if (!mapElementRef.current) return
+    const map = L.map(mapElementRef.current, { zoomControl: false }).setView([25.045, 121.535], 12)
+    L.control.zoom({ position: 'topright' }).addTo(map)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map)
+
+    for (const point of DEMO_MAP_POINTS) {
+      const station = STATIONS.find(item => item.code === point.code)
+      const marker = L.marker([point.latitude, point.longitude], {
+        icon: L.divIcon({
+          className: 'demo-map-marker',
+          html: `<span style="display:block;width:20px;height:20px;border:3px solid white;border-radius:999px;background:${station?.color || '#00a05a'};box-shadow:0 1px 5px rgba(0,0,0,.35)"></span>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        }),
+      }).addTo(map)
+      marker.bindTooltip(`${station?.name || point.code}（${point.code}）`)
+      marker.on('click', () => setSelectedCode(point.code))
+    }
+
+    mapRef.current = map
+    window.setTimeout(() => map.invalidateSize(), 0)
+    return () => {
+      map.remove()
+      mapRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    mapRef.current?.panTo([selectedPoint.latitude, selectedPoint.longitude])
+  }, [selectedCode, selectedPoint.latitude, selectedPoint.longitude])
+
+  return (
+    <div className="absolute inset-0 z-[70] flex flex-col bg-white">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <div>
+          <p className="text-base font-bold text-gray-800">模擬目前位置</p>
+          <p className="text-xs text-gray-400">Demo 用，點選站點後重新取得推薦</p>
+        </div>
+        <button onClick={onClose} className="rounded-full bg-gray-100 px-3 py-1.5 text-sm text-gray-600">關閉</button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-3">
+        <div className="overflow-hidden rounded-2xl border border-[#c9e3ee] bg-[#eef8fb]">
+          <div ref={mapElementRef} className="h-[300px] w-full" aria-label={`Leaflet 地圖：${selectedStation?.name || selectedPoint.code}`} />
+        </div>
+        <p className="mt-3 text-xs text-gray-500">選擇測試位置</p>
+        <div className="mt-2 grid grid-cols-2 gap-2">
+          {DEMO_MAP_POINTS.map(point => {
+            const station = STATIONS.find(item => item.code === point.code)
+            const active = point.code === selectedCode
+            return (
+              <button
+                key={point.code}
+                onClick={() => setSelectedCode(point.code)}
+                className={`rounded-xl border px-3 py-2 text-left transition-colors ${active ? 'border-[#00a05a] bg-[#f0faf5] text-[#007a44]' : 'border-gray-200 bg-white text-gray-700'}`}
+              >
+                <span className="block text-sm font-semibold">{station?.name || point.code}</span>
+                <span className="text-[11px] text-gray-400">{point.code}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <div className="border-t border-gray-100 bg-white px-4 py-3">
+        <button onClick={() => onApply(selectedCode)} className="w-full rounded-2xl bg-[#00a05a] py-3.5 text-base font-semibold text-white shadow-md shadow-[#00a05a]/20 active:scale-95">
+          以「{selectedStation?.name || selectedCode}」模擬進站
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // ─── Home Screen with Push Notification ─────────────────────────────────────
 
 function HomeScreen({ showNotif, notificationOffer, onNotifTap, onNotifDismiss, onReturnToApp }: { showNotif: boolean; notificationOffer: Offer | null; onNotifTap: () => void; onNotifDismiss: () => void; onReturnToApp: () => void }) {
@@ -1041,29 +1145,43 @@ const REASON_LABELS: Record<string, string> = {
 }
 
 function formatReason(reason: string) {
-  const label = REASON_LABELS[reason] || reason.replaceAll('_', ' ')
+  const label = REASON_LABELS[reason] || reason.split('_').join(' ')
   return `${label}（${reason}）`
 }
 
-function recommendationToOffer(recommendation: Recommendation): Offer {
-  const points = DEMO_OFFER_POINTS[recommendation.offer_id] || 80
+function recommendationToOffer(recommendation: Recommendation, selectedOffer?: RecommendedOffer): Offer {
+  const offerId = selectedOffer?.offer_id || recommendation.offer_id
+  const points = selectedOffer?.points_cost || DEMO_OFFER_POINTS[offerId] || 80
   return {
-    id: recommendation.offer_id,
+    id: offerId,
     cat: 'recommendation',
     brand: 'MetroPoint AI',
-    title: recommendation.title || '專屬捷運點優惠',
+    title: selectedOffer?.title || recommendation.title || '專屬捷運點優惠',
     points,
     expiry: '近期有效',
-    desc: recommendation.body,
+    desc: selectedOffer?.body || recommendation.body,
     bg: '#0b8f5a',
     accent: '#fff',
     logo: 'M',
     amount: `${points}`,
     unit: '捷運點',
-    content: recommendation.body,
+    content: selectedOffer?.body || recommendation.body,
     notes: DEFAULT_NOTES,
     steps: [],
   }
+}
+
+function getRecommendationOffers(recommendation: Recommendation): RecommendedOffer[] {
+  if (recommendation.offers && recommendation.offers.length > 0) return recommendation.offers
+  return [{
+    offer_id: recommendation.offer_id,
+    title: recommendation.title,
+    body: recommendation.body,
+    reasons: recommendation.reasons,
+    score: 0,
+    points_cost: DEMO_OFFER_POINTS[recommendation.offer_id] || 80,
+    station_id: '',
+  }]
 }
 
 export default function App() {
@@ -1073,17 +1191,20 @@ export default function App() {
   const [journeyId, setJourneyId] = useState('')
   const [journeyTraceId, setJourneyTraceId] = useState('')
   const [redemption, setRedemption] = useState<Redemption | null>(null)
+  const [redeemedOfferId, setRedeemedOfferId] = useState('')
   const [claimedOfferIds, setClaimedOfferIds] = useState<string[]>([])
   const [redeeming, setRedeeming] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [apiMessage, setApiMessage] = useState('')
   const [notificationSubscriptionId, setNotificationSubscriptionId] = useState('')
   const [activeTab, setActiveTab] = useState<'frequent' | 'nearby' | 'offers'>('frequent')
+  const [currentStationCode, setCurrentStationCode] = useState('')
+  const [showDemoMap, setShowDemoMap] = useState(false)
   const [detailOffer, setDetailOffer] = useState<Offer | null>(null)
   const [bannerIndex, setBannerIndex] = useState(3)
   const [showHomeScreen, setShowHomeScreen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
-  const impressedRecommendationId = useRef('')
+  const impressedOfferKeys = useRef(new Set<string>())
   const totalBanners = 9
   const notificationOffer = recommendation ? recommendationToOffer(recommendation) : null
 
@@ -1099,21 +1220,26 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (!recommendation || !journeyId || !journeyTraceId || impressedRecommendationId.current === recommendation.recommendation_id) return
-    impressedRecommendationId.current = recommendation.recommendation_id
-    void recordRecommendationEvent({
-      eventType: 'recommendation.impressed.v1',
-      recommendationId: recommendation.recommendation_id,
-      journeyId,
-      offerId: recommendation.offer_id,
-      traceId: journeyTraceId,
-    }).catch(() => {
-      // Engagement telemetry is best-effort and must not block the demo flow.
-    })
+    if (!recommendation || !journeyId || !journeyTraceId) return
+    for (const offer of getRecommendationOffers(recommendation)) {
+      const key = `${recommendation.recommendation_id}:${offer.offer_id}`
+      if (impressedOfferKeys.current.has(key)) continue
+      impressedOfferKeys.current.add(key)
+      void recordRecommendationEvent({
+        eventType: 'recommendation.impressed.v1',
+        recommendationId: recommendation.recommendation_id,
+        journeyId,
+        offerId: offer.offer_id,
+        traceId: journeyTraceId,
+      }).catch(() => {
+        // Engagement telemetry is best-effort and must not block the demo flow.
+      })
+    }
   }, [journeyId, journeyTraceId, recommendation])
 
   async function loadRecommendation(stationId: string) {
     const traceId = crypto.randomUUID()
+    setCurrentStationCode(stationId)
     setJourneyTraceId(traceId)
     const entry = await createEntryEvent(stationId, DEMO_USER_ID_HASH, traceId)
     setJourneyId(entry.journey_id)
@@ -1131,9 +1257,25 @@ export default function App() {
     throw lastError instanceof Error ? lastError : new Error('推薦尚未準備完成')
   }
 
+  async function applyDemoStation(stationId: string) {
+    setShowDemoMap(false)
+    setSyncing(true)
+    setApiMessage(`正在模擬 ${STATIONS.find(station => station.code === stationId)?.name || stationId} 的進站事件…`)
+    try {
+      await loadRecommendation(stationId)
+      setOnboardingDone(true)
+      setActiveTab('offers')
+      setApiMessage('已切換 Demo 位置，推薦會依該站點重新產生。')
+    } catch (error) {
+      setApiMessage(error instanceof Error ? `切換 Demo 位置失敗：${error.message}` : '切換 Demo 位置失敗。')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   function openOffer(offer: Offer) {
     setDetailOffer(offer)
-    if (!recommendation || offer.id !== recommendation.offer_id || !journeyId || !journeyTraceId) return
+    if (!recommendation || !getRecommendationOffers(recommendation).some(candidate => candidate.offer_id === offer.id) || !journeyId || !journeyTraceId) return
     void recordRecommendationEvent({
       eventType: 'recommendation.clicked.v1',
       recommendationId: recommendation.recommendation_id,
@@ -1145,13 +1287,13 @@ export default function App() {
     })
   }
 
-  function dismissRecommendation() {
+  function dismissRecommendation(offerId = recommendation?.offer_id || '') {
     if (!recommendation || !journeyId || !journeyTraceId) return
     void recordRecommendationEvent({
       eventType: 'recommendation.dismissed.v1',
       recommendationId: recommendation.recommendation_id,
       journeyId,
-      offerId: recommendation.offer_id,
+      offerId,
       traceId: journeyTraceId,
     }).catch(() => {
       // Feedback telemetry is best-effort and must not block the demo flow.
@@ -1230,17 +1372,18 @@ export default function App() {
     }
   }
 
-  async function redeemRecommendation(): Promise<boolean> {
+  async function redeemRecommendation(offerId = recommendation?.offer_id || ''): Promise<boolean> {
     if (!recommendation || !journeyId) {
       setApiMessage('請先完成進站推薦，再兌換優惠。')
       return false
     }
     setRedeeming(true)
     setApiMessage('正在建立兌換…')
-    const idempotencyKey = `web-${recommendation.recommendation_id}`
+    const idempotencyKey = `web-${recommendation.recommendation_id}-${offerId}`
     try {
-      const result = await createRedemption(recommendation.offer_id, journeyId, idempotencyKey, DEMO_USER_ID_HASH, journeyTraceId)
+      const result = await createRedemption(offerId, journeyId, idempotencyKey, DEMO_USER_ID_HASH, journeyTraceId)
       setRedemption(result.redemption)
+      setRedeemedOfferId(offerId)
       try {
         const persisted = await getRedemption(result.redemption.redemption_id)
         setRedemption(persisted.redemption)
@@ -1282,12 +1425,20 @@ export default function App() {
           <OfferDetail
             offer={detailOffer}
             onBack={() => setDetailOffer(null)}
-            onRedeem={recommendation && detailOffer.id === recommendation.offer_id ? redeemRecommendation : undefined}
+            onRedeem={recommendation ? () => redeemRecommendation(detailOffer.id) : undefined}
             onClaimed={markOfferClaimed}
-            onDismiss={recommendation && detailOffer.id === recommendation.offer_id ? dismissRecommendation : undefined}
-            redemption={recommendation && detailOffer.id === recommendation.offer_id ? redemption : null}
-            recommendation={recommendation && detailOffer.id === recommendation.offer_id ? recommendation : null}
+            onDismiss={recommendation ? () => dismissRecommendation(detailOffer.id) : undefined}
+            redemption={recommendation && redeemedOfferId === detailOffer.id ? redemption : null}
+            recommendation={recommendation}
             redeeming={redeeming}
+          />
+        )}
+
+        {showDemoMap && (
+          <DemoMapPicker
+            initialCode={currentStationCode || userPrefs.stations[0] || 'R04'}
+            onClose={() => setShowDemoMap(false)}
+            onApply={stationId => { void applyDemoStation(stationId) }}
           />
         )}
 
@@ -1473,9 +1624,17 @@ export default function App() {
 
           {/* Station section */}
           <section>
-            <div className="flex justify-end items-center gap-2 mb-2">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <button
+                onClick={() => setShowDemoMap(true)}
+                className="rounded-lg border border-[#9bd5c0] bg-[#f0faf5] px-2.5 py-1.5 text-xs font-semibold text-[#007a44] active:scale-95"
+              >
+                🗺️ Demo 模擬位置
+              </button>
+              <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">8秒後更新</span>
               <button className="rounded-lg overflow-hidden w-7 h-7"><img src={changeIcon} alt="更新" className="w-full h-full object-cover" /></button>
+              </div>
             </div>
 
             {/* Tabs + station card share one rounded box for frequent/nearby */}
@@ -1498,16 +1657,17 @@ export default function App() {
                 </div>
               )
 
-              // arriving station name (first selected, fallback to 信義安和)
-              const arrivingCode = userPrefs.stations[0] ?? 'R04'
+              // Demo entry station is separate from favorite stations; Beacon will replace this in production.
+              const arrivingCode = currentStationCode || userPrefs.stations[0] || 'R04'
               const arriving = STATIONS.find(s => s.code === arrivingCode)?.name ?? '信義安和'
               const arrivingStation = STATIONS.find(s => s.code === arrivingCode) ?? STATIONS[0]
               const arrivingLine = arrivingStation.code.match(/^[A-Z]+/)?.[0] ?? 'R'
               const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
-              const apiOffer = recommendation && !claimedOfferIds.includes(recommendation.offer_id)
-                ? recommendationToOffer(recommendation)
-                : null
-              const visibleOffers = apiOffer ? [apiOffer] : []
+              const visibleOffers = recommendation
+                ? getRecommendationOffers(recommendation)
+                  .filter(candidate => !claimedOfferIds.includes(candidate.offer_id))
+                  .map(candidate => recommendationToOffer(recommendation, candidate))
+                : []
 
               return (
                 <div className="rounded-2xl border border-[#c9e3ee] shadow-sm overflow-hidden mb-3" style={{ backgroundColor: '#e5f2f8' }}>
