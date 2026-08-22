@@ -4,7 +4,6 @@ import featureGridImg from '@/imports/功能圖.jpg'
 import logoImg from '@/imports/logo.png'
 import appIconImg from '@/imports/MetroPoint AI.jpg'
 import changeIcon from '@/imports/Change.jpg'
-import kosmedCouponImg from '@/imports/康是美票卷.jpg'
 import {
   createEntryEvent,
   createRedemption,
@@ -522,57 +521,6 @@ const DEFAULT_NOTES = [
 ]
 const DEFAULT_STEPS: string[] = []
 
-const ALL_OFFERS: Offer[] = [
-  {
-    id: 'o2', cat: 'beauty', brand: '康是美', title: '消費滿$499折$50購物抵用券（須扣捷運點3點）', points: 3,
-    expiry: '2026/08/31', desc: '扣點領券後，憑本券至康是美門市消費滿499元，可折抵50元（部分商品不適用，單筆發票限用1張）。',
-    bg: '#e8392a', accent: '#fff', logo: '💊', amount: '$50', unit: '抵用', image: kosmedCouponImg,
-    content: '扣點領券後，憑券至康是美門市消費滿499元，可折抵50元（部分商品不適用，單筆發票限用1張）。',
-    notes: DEFAULT_NOTES,
-    steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-coffee-xinyi', cat: 'coffee', brand: 'Metro Cafe', title: '通勤咖啡折抵 50 元', points: 80,
-    expiry: '近期有效', desc: '信義安和站附近咖啡折抵優惠。', bg: '#7b4b2a', accent: '#fff', logo: '☕', amount: '$50', unit: '抵用',
-    content: '使用 80 點可兌換信義安和站附近咖啡折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-lunch-xinyi', cat: 'lunch', brand: 'Metro Kitchen', title: '午間套餐折抵 80 元', points: 120,
-    expiry: '近期有效', desc: '信義安和站附近午餐套餐折抵優惠。', bg: '#d97706', accent: '#fff', logo: '🍱', amount: '$80', unit: '抵用',
-    content: '使用 120 點可兌換信義安和站附近午餐套餐折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-dessert-101', cat: 'bakery', brand: 'Sweet Spot', title: '甜點兌換券', points: 150,
-    expiry: '近期有效', desc: '台北101／世貿站附近甜點兌換。', bg: '#d94672', accent: '#fff', logo: '🍰', amount: '1', unit: '份',
-    content: '使用 150 點可兌換台北101／世貿站附近甜點。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-drink-101', cat: 'boba', brand: 'Daily Tea', title: '台北101 手搖飲折抵 30 元', points: 70,
-    expiry: '近期有效', desc: '台北101／世貿站附近飲品折抵優惠。', bg: '#0f766e', accent: '#fff', logo: '🧋', amount: '$30', unit: '抵用',
-    content: '使用 70 點可兌換台北101／世貿站附近飲品折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-burger-ximen', cat: 'fast', brand: 'Ximen Burger', title: '西門町漢堡套餐折抵 100 元', points: 160,
-    expiry: '近期有效', desc: '西門站附近漢堡套餐折抵優惠。', bg: '#b45309', accent: '#fff', logo: '🍔', amount: '$100', unit: '抵用',
-    content: '使用 160 點可兌換西門站附近漢堡套餐折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-coffee-gongguan', cat: 'coffee', brand: 'Campus Coffee', title: '公館咖啡折抵 50 元', points: 90,
-    expiry: '近期有效', desc: '公館站附近咖啡店折抵優惠。', bg: '#92400e', accent: '#fff', logo: '☕', amount: '$50', unit: '抵用',
-    content: '使用 90 點可兌換公館站附近咖啡折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-convenience-cityhall', cat: 'cvs', brand: 'Metro Mart', title: '市政府便利商店折抵 50 元', points: 100,
-    expiry: '近期有效', desc: '市政府站附近便利商店消費折抵優惠。', bg: '#2563eb', accent: '#fff', logo: '🏪', amount: '$50', unit: '抵用',
-    content: '使用 100 點可兌換市政府站附近便利商店消費折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-  {
-    id: 'offer-lunch-xingtian', cat: 'lunch', brand: 'Xingtian Bento', title: '行天宮便當折抵 80 元', points: 150,
-    expiry: '近期有效', desc: '行天宮站附近便當與午餐折抵優惠。', bg: '#dc2626', accent: '#fff', logo: '🍱', amount: '$80', unit: '抵用',
-    content: '使用 150 點可兌換行天宮站附近便當折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
-  },
-]
-
 function OfferDetail({
   offer,
   onBack,
@@ -727,7 +675,7 @@ function OfferDetail({
                 {recommendation.reasons.map(reason => (
                   <p key={reason} className="text-[12px] text-gray-700 leading-relaxed flex gap-1.5">
                     <span style={{ color: '#00a05a' }}>✓</span>
-                    <span>{reason}</span>
+                    <span>{formatReason(reason)}</span>
                   </p>
                 ))}
               </div>
@@ -930,25 +878,30 @@ function OfferCard({ offer, arriving, onOpen }: { offer: Offer; arriving: string
 
 // ─── Home Screen with Push Notification ─────────────────────────────────────
 
-function HomeScreen({ showNotif, onNotifTap, onNotifDismiss, onReturnToApp }: { showNotif: boolean; onNotifTap: () => void; onNotifDismiss: () => void; onReturnToApp: () => void }) {
+function HomeScreen({ showNotif, notificationOffer, onNotifTap, onNotifDismiss, onReturnToApp }: { showNotif: boolean; notificationOffer: Offer | null; onNotifTap: () => void; onNotifDismiss: () => void; onReturnToApp: () => void }) {
   const [expanded, setExpanded] = useState(false)
-  const touchStartY = useRef<number | null>(null)
+  const pointerStartY = useRef<number | null>(null)
   const now = new Date()
   const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
   const dateStr = `${now.getMonth() + 1}月${now.getDate()}日 週${'日一二三四五六'[now.getDay()]}`
+  const notificationTitle = notificationOffer ? `抵達推薦：「${notificationOffer.title}」` : '個人化推薦準備中'
+  const notificationBody = notificationOffer ? notificationOffer.desc : '推薦完成後會顯示適合您的專屬優惠。'
 
   return (
     <div
       className="absolute inset-0 flex flex-col"
-      onTouchStart={event => { touchStartY.current = event.touches[0]?.clientY ?? null }}
-      onTouchEnd={event => {
-        const startY = touchStartY.current
-        touchStartY.current = null
-        if (startY !== null && startY - (event.changedTouches[0]?.clientY ?? startY) > 48) onReturnToApp()
+      onPointerDown={event => { pointerStartY.current = event.clientY }}
+      onPointerUp={event => {
+        const startY = pointerStartY.current
+        pointerStartY.current = null
+        if (startY !== null && startY - event.clientY > 48) onReturnToApp()
       }}
+      onWheel={event => { if (event.deltaY < -10) onReturnToApp() }}
       style={{
       zIndex: 100,
       background: 'linear-gradient(160deg, #1a3a2a 0%, #0d2318 40%, #0a1a10 100%)',
+      touchAction: 'none',
+      userSelect: 'none',
       }}
     >
       {/* Subtle bokeh blobs */}
@@ -993,17 +946,17 @@ function HomeScreen({ showNotif, onNotifTap, onNotifDismiss, onReturnToApp }: { 
                 <span className="text-white/50 text-[11px] ml-2 flex-shrink-0">剛剛</span>
               </div>
               <p className="text-white text-[13px] font-bold leading-snug">
-                台北車站到了！「康是美」購物抵用券等你領💊
+                {notificationTitle}
               </p>
               {!expanded ? (
                 <p className="text-white/75 text-[12px] leading-snug mt-0.5 line-clamp-2">
-                  消費滿 499 元折 50 元，出站即到門市
+                  {notificationBody}
                 </p>
               ) : (
                 <div className="text-white/75 text-[12px] leading-relaxed mt-1 space-y-0.5">
-                  <p>消費滿 499 元折 50 元，出站即到門市</p>
-                  <p>🪙 扣 3 點捷運點即可兌換，使用期限至 08/31</p>
-                  <p>➡️ 點擊查看詳情，一鍵兌換</p>
+                  <p>{notificationBody}</p>
+                  {notificationOffer && <p>🪙 使用 {notificationOffer.points} 點即可兌換</p>}
+                  <p>➡️ 點擊查看詳情，查看個人化推薦</p>
                 </div>
               )}
             </div>
@@ -1035,10 +988,7 @@ function HomeScreen({ showNotif, onNotifTap, onNotifDismiss, onReturnToApp }: { 
 
       {/* Home indicator hint */}
       <div className="absolute bottom-6 left-0 right-0 flex flex-col items-center gap-2">
-        <button onClick={onReturnToApp} className="rounded-full border border-white/25 bg-black/20 px-4 py-1.5 text-[12px] font-medium text-white/80">
-          返回 App
-        </button>
-        <span className="text-white/40 text-[11px]">向上滑動或點擊返回 App</span>
+        <span className="text-white/40 text-[11px]">向上滑動返回 App</span>
         <div className="w-24 h-1 rounded-full bg-white/30" />
       </div>
     </div>
@@ -1076,6 +1026,23 @@ const DEMO_OFFER_POINTS: Record<string, number> = {
   'offer-convenience-taipei': 100,
   'offer-lunch-xingtian': 150,
   'offer-dessert-xingtian': 90,
+}
+
+const REASON_LABELS: Record<string, string> = {
+  near_predicted_destination: '接近預測目的地',
+  within_budget: '符合預算範圍',
+  inventory_urgency: '庫存即將額滿',
+  preferred_category: '符合偏好類別',
+  learned_category_preference: '符合過往偏好',
+  learned_category_avoidance: '已降低類似偏好',
+  within_points: '符合點數條件',
+  near_station: '接近抵達車站',
+  point_roi: '點數效益較高',
+}
+
+function formatReason(reason: string) {
+  const label = REASON_LABELS[reason] || reason.replaceAll('_', ' ')
+  return `${label}（${reason}）`
 }
 
 function recommendationToOffer(recommendation: Recommendation): Offer {
@@ -1118,8 +1085,7 @@ export default function App() {
   const [showNotif, setShowNotif] = useState(false)
   const impressedRecommendationId = useRef('')
   const totalBanners = 9
-
-  const kosmedOffer = ALL_OFFERS.find(o => o.id === 'o2')!
+  const notificationOffer = recommendation ? recommendationToOffer(recommendation) : null
 
   useEffect(() => {
     void getUserProfile().then(({ profile }) => {
@@ -1304,7 +1270,8 @@ export default function App() {
         {showHomeScreen && (
           <HomeScreen
             showNotif={showNotif}
-            onNotifTap={() => { setShowHomeScreen(false); setDetailOffer(kosmedOffer) }}
+            notificationOffer={notificationOffer}
+            onNotifTap={() => { setShowHomeScreen(false); if (notificationOffer) setDetailOffer(notificationOffer) }}
             onNotifDismiss={() => setShowHomeScreen(false)}
             onReturnToApp={() => setShowHomeScreen(false)}
           />
@@ -1537,15 +1504,10 @@ export default function App() {
               const arrivingStation = STATIONS.find(s => s.code === arrivingCode) ?? STATIONS[0]
               const arrivingLine = arrivingStation.code.match(/^[A-Z]+/)?.[0] ?? 'R'
               const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
-              // filter by user's cats; if none chosen show all
-              const cats = userPrefs.cats.length > 0 ? userPrefs.cats : ALL_OFFERS.map(o => o.cat)
-              const filtered = ALL_OFFERS.filter(o => cats.includes(o.cat) && !claimedOfferIds.includes(o.id))
               const apiOffer = recommendation && !claimedOfferIds.includes(recommendation.offer_id)
                 ? recommendationToOffer(recommendation)
                 : null
-              const visibleOffers = apiOffer
-                ? [apiOffer, ...filtered.filter(offer => offer.id !== apiOffer.id)]
-                : filtered
+              const visibleOffers = apiOffer ? [apiOffer] : []
 
               return (
                 <div className="rounded-2xl border border-[#c9e3ee] shadow-sm overflow-hidden mb-3" style={{ backgroundColor: '#e5f2f8' }}>
@@ -1587,7 +1549,7 @@ export default function App() {
                         <OfferCard key={offer.id} offer={offer} arriving={arriving} onOpen={() => openOffer(offer)} />
                       ))}
                       {visibleOffers.length === 0 && (
-                        <div className="text-center text-gray-400 text-sm py-8">目前無符合的優惠</div>
+                        <div className="text-center text-gray-400 text-sm py-8">目前尚無個人化推薦</div>
                       )}
                     </div>
                   )}
