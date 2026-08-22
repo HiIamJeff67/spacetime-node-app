@@ -1388,8 +1388,10 @@ export default function App() {
 
   async function completeOnboarding(result: OnboardingResult) {
     setSyncing(true)
-    setApiMessage('正在同步您的個人化設定…')
+    setOnboardingDone(true)
+    setApiMessage('正在啟動 Chrome Beacon 定位…')
     setUserPrefs({ stations: result.stations, cats: result.cats })
+    if (supportsBeaconScan()) void startChromeBeaconScan()
     const notificationWindow = result.pushTiming === 'peak'
       ? { start: '07:00', end: '10:00' }
       : { start: '08:00', end: '22:00' }
@@ -1427,9 +1429,9 @@ export default function App() {
           setNotificationSubscriptionId(subscription.subscription_id)
         }
       }
-      // Use the station selected during onboarding; R04 remains the fallback for skip/demo mode.
-      const loaded = await loadRecommendation({ stationId: result.stations[0] || 'R04' })
-      if (loaded !== null) setApiMessage('已同步設定並啟用展示推播，這是依照您的偏好產生的推薦。')
+      if (!supportsBeaconScan()) {
+        setApiMessage('Chrome Beacon 目前不可用，請開啟掃描權限後再按「Chrome Beacon」；也可使用 Demo 模擬位置。')
+      }
     } catch (error) {
       setApiMessage(error instanceof Error ? `後端尚未連線：${error.message}` : '後端尚未連線，先顯示展示資料。')
     } finally {
@@ -1712,7 +1714,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => void startChromeBeaconScan()}
-                  disabled={!supportsBeaconScan() || beaconScanning || syncing}
+                  disabled={beaconScanning || syncing}
                   title={supportsBeaconScan() ? '使用 Chrome 掃描附近 iBeacon' : '需要支援 Web Bluetooth scanning 的 Chrome'}
                   className="rounded-lg border border-[#9bd5c0] bg-[#f0faf5] px-2.5 py-1.5 text-xs font-semibold text-[#007a44] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -1755,11 +1757,11 @@ export default function App() {
               )
 
               // Demo entry station is separate from favorite stations; Beacon will replace this in production.
-              const arrivingCode = currentStationCode || userPrefs.stations[0] || 'R04'
-              const arriving = STATIONS.find(s => s.code === arrivingCode)?.name ?? '信義安和'
-              const arrivingStation = STATIONS.find(s => s.code === arrivingCode) ?? STATIONS[0]
-              const arrivingLine = arrivingStation.code.match(/^[A-Z]+/)?.[0] ?? 'R'
-              const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
+              const arrivingCode = currentStationCode
+              const arrivingStation = STATIONS.find(s => s.code === arrivingCode)
+              const arriving = arrivingStation?.name ?? '等待 Chrome Beacon 定位'
+              const arrivingLine = arrivingStation?.code.match(/^[A-Z]+/)?.[0] ?? ''
+              const arrivingNumber = arrivingStation?.code.match(/\d+/)?.[0] ?? ''
               const visibleOffers = recommendation
                 ? getRecommendationOffersForStation(recommendation, arrivingCode)
                   .filter(candidate => !claimedOfferIds.includes(candidate.offer_id))
@@ -1774,7 +1776,7 @@ export default function App() {
                     <>
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <LineBadge line={arrivingLine} number={arrivingNumber} bg={arrivingStation.color} />
+                          {arrivingStation ? <LineBadge line={arrivingLine} number={arrivingNumber} bg={arrivingStation.color} /> : <span className="text-lg">📡</span>}
                           <span className="text-base font-semibold text-gray-800">{arriving}</span>
                         </div>
                         <IconChevronUp />
