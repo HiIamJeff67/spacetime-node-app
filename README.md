@@ -27,6 +27,21 @@ the same origin.
 2. The app saves preferences, creates an entry event, and polls the latest recommendation.
 3. Open the recommended offer, redeem it once, and read the persisted redemption status.
 
+### Chrome Beacon demo
+
+On a supported Chrome build, use the `Chrome Beacon` button in the station
+section. The page scans Apple iBeacon advertisements, parses UUID/Major/Minor/
+Power, and sends the observation to the backend `/v1/entry-events` API. The
+backend resolves the actual station through the TRTC Beacon provider; the
+frontend does not send a `station_id` for this path.
+
+Beacon scanning requires HTTPS, Bluetooth permission, and a user gesture. The
+Chrome scanning implementation may require enabling
+`chrome://flags/#enable-experimental-web-platform-features`. If scanning is
+unavailable, use the Demo map selector. iOS Safari does not provide a reliable
+Web Bluetooth scanning path, so the report should describe this as a Chrome
+MVP limitation.
+
 The demo station selector exposes the full 122-station catalog from the backend
 Beacon migration. The backend must apply `000012_beacon_station_catalog.sql`
 before using the complete station list in the deployed demo.

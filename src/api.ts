@@ -80,6 +80,13 @@ export type BrowserPushSubscription = {
   auth: string
 }
 
+export type BeaconObservation = {
+  uuid: string
+  major: number
+  minor: number
+  power: number
+}
+
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || ''
 
 function base64UrlToBytes(value: string) {
@@ -165,6 +172,17 @@ export function createEntryEvent(stationId: string, userIdHash = DEMO_USER_ID_HA
     body: JSON.stringify({
       user_id_hash: userIdHash,
       station_id: stationId,
+      request_context: { trace_id: traceId },
+    }),
+  })
+}
+
+export function createBeaconEntryEvent(beacon: BeaconObservation, userIdHash = DEMO_USER_ID_HASH, traceId: string = crypto.randomUUID()) {
+  return request<{ journey_id: string }>('/v1/entry-events', {
+    method: 'POST',
+    body: JSON.stringify({
+      user_id_hash: userIdHash,
+      beacon,
       request_context: { trace_id: traceId },
     }),
   })

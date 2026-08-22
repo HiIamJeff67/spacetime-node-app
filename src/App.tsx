@@ -8,6 +8,7 @@ import appIconImg from '@/imports/MetroPoint AI.jpg'
 import changeIcon from '@/imports/Change.jpg'
 import {
   createEntryEvent,
+  createBeaconEntryEvent,
   createRedemption,
   DEMO_USER_ID_HASH,
   getLatestRecommendation,
@@ -22,7 +23,9 @@ import {
   type RecommendedOffer,
   type Redemption,
   updateUserPreferences,
+  type BeaconObservation,
 } from './api'
+import { startBeaconScan, supportsBeaconScan } from './beacon'
 
 // ── Icons ──
 function IconGlobe() {
@@ -1184,6 +1187,14 @@ function getRecommendationOffers(recommendation: Recommendation): RecommendedOff
   }]
 }
 
+function getRecommendationOffersForStation(recommendation: Recommendation, stationCode: string): RecommendedOffer[] {
+  const offers = getRecommendationOffers(recommendation)
+  if (!stationCode) return offers
+  const stationAwareOffers = offers.filter(offer => offer.station_id !== '')
+  if (stationAwareOffers.length === 0) return offers
+  return stationAwareOffers.filter(offer => offer.station_id === stationCode)
+}
+
 export default function App() {
   const [onboardingDone, setOnboardingDone] = useState(false)
   const [userPrefs, setUserPrefs] = useState<{ stations: string[]; cats: string[] }>({ stations: [], cats: [] })
@@ -1204,9 +1215,19 @@ export default function App() {
   const [bannerIndex, setBannerIndex] = useState(3)
   const [showHomeScreen, setShowHomeScreen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
+  const [beaconScanning, setBeaconScanning] = useState(false)
+  const [beaconObservation, setBeaconObservation] = useState<BeaconObservation | null>(null)
   const impressedOfferKeys = useRef(new Set<string>())
+  const recommendationRequestRef = useRef(0)
+  const beaconHandledRef = useRef(false)
+  const beaconStopRef = useRef<(() => void) | null>(null)
   const totalBanners = 9
-  const notificationOffer = recommendation ? recommendationToOffer(recommendation) : null
+  const notificationOffers = recommendation
+    ? getRecommendationOffersForStation(recommendation, currentStationCode)
+    : []
+  const notificationOffer = recommendation && notificationOffers.length > 0
+    ? recommendationToOffer(recommendation, notificationOffers[0])
+    : null
 
   useEffect(() => {
     void getUserProfile().then(({ profile }) => {
@@ -1219,9 +1240,13 @@ export default function App() {
     })
   }, [])
 
+  useEffect(() => () => {
+    beaconStopRef.current?.()
+  }, [])
+
   useEffect(() => {
     if (!recommendation || !journeyId || !journeyTraceId) return
-    for (const offer of getRecommendationOffers(recommendation)) {
+    for (const offer of getRecommendationOffersForStation(recommendation, currentStationCode)) {
       const key = `${recommendation.recommendation_id}:${offer.offer_id}`
       if (impressedOfferKeys.current.has(key)) continue
       impressedOfferKeys.current.add(key)
@@ -1235,25 +1260,44 @@ export default function App() {
         // Engagement telemetry is best-effort and must not block the demo flow.
       })
     }
-  }, [journeyId, journeyTraceId, recommendation])
+  }, [currentStationCode, journeyId, journeyTraceId, recommendation])
 
-  async function loadRecommendation(stationId: string) {
+  async function loadRecommendation(source: { stationId?: string; beacon?: BeaconObservation }): Promise<string | null> {
+    const requestId = recommendationRequestRef.current + 1
+    recommendationRequestRef.current = requestId
     const traceId = crypto.randomUUID()
+    const stationId = source.stationId || ''
     setCurrentStationCode(stationId)
     setJourneyTraceId(traceId)
-    const entry = await createEntryEvent(stationId, DEMO_USER_ID_HASH, traceId)
+    setJourneyId('')
+    setRecommendation(null)
+    let entry: Awaited<ReturnType<typeof createEntryEvent>>
+    try {
+      entry = source.beacon
+        ? await createBeaconEntryEvent(source.beacon, DEMO_USER_ID_HASH, traceId)
+        : await createEntryEvent(stationId, DEMO_USER_ID_HASH, traceId)
+    } catch (error) {
+      if (requestId !== recommendationRequestRef.current) return null
+      throw error
+    }
+    if (requestId !== recommendationRequestRef.current) return null
     setJourneyId(entry.journey_id)
     let lastError: unknown
     for (let attempt = 0; attempt < 30; attempt += 1) {
       try {
         const latest = await getLatestRecommendation(entry.journey_id)
+        if (requestId !== recommendationRequestRef.current) return null
+        const resolvedStation = latest.offers?.find(offer => offer.station_id)?.station_id || ''
+        if (resolvedStation) setCurrentStationCode(resolvedStation)
         setRecommendation(latest)
-        return
+        return resolvedStation || stationId
       } catch (error) {
+        if (requestId !== recommendationRequestRef.current) return null
         lastError = error
         await new Promise(resolve => window.setTimeout(resolve, 500))
       }
     }
+    if (requestId !== recommendationRequestRef.current) return null
     throw lastError instanceof Error ? lastError : new Error('推薦尚未準備完成')
   }
 
@@ -1262,12 +1306,52 @@ export default function App() {
     setSyncing(true)
     setApiMessage(`正在模擬 ${STATIONS.find(station => station.code === stationId)?.name || stationId} 的進站事件…`)
     try {
-      await loadRecommendation(stationId)
+      const loaded = await loadRecommendation({ stationId })
+      if (loaded === null) return
       setOnboardingDone(true)
       setActiveTab('offers')
       setApiMessage('已切換 Demo 位置，推薦會依該站點重新產生。')
     } catch (error) {
       setApiMessage(error instanceof Error ? `切換 Demo 位置失敗：${error.message}` : '切換 Demo 位置失敗。')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  async function startChromeBeaconScan() {
+    if (beaconScanning) return
+    beaconHandledRef.current = false
+    setBeaconObservation(null)
+    setBeaconScanning(true)
+    setApiMessage('請在 Chrome 的權限視窗允許 Beacon 廣播掃描…')
+    try {
+      const stop = await startBeaconScan(observation => {
+        if (beaconHandledRef.current) return
+        beaconHandledRef.current = true
+        setBeaconObservation(observation)
+        setBeaconScanning(false)
+        void applyBeaconObservation(observation)
+      })
+      beaconStopRef.current = stop
+    } catch (error) {
+      setBeaconScanning(false)
+      const message = error instanceof Error ? error.message : 'Chrome Beacon 掃描啟動失敗'
+      setApiMessage(`${message}。請改用 Demo 模擬位置。`)
+    }
+  }
+
+  async function applyBeaconObservation(observation: BeaconObservation) {
+    setSyncing(true)
+    setApiMessage(`已掃描 Beacon ${observation.major}/${observation.minor}，正在解析實際站點…`)
+    try {
+      const loadedStation = await loadRecommendation({ beacon: observation })
+      if (loadedStation === null) return
+      setOnboardingDone(true)
+      setActiveTab('offers')
+      const stationName = STATIONS.find(station => station.code === loadedStation)?.name || loadedStation || '已解析站點'
+      setApiMessage(`Chrome Beacon 已定位到 ${stationName}，推薦已依實際站點產生。`)
+    } catch (error) {
+      setApiMessage(error instanceof Error ? `Beacon 進站失敗：${error.message}` : 'Beacon 進站失敗，請改用 Demo 模擬位置。')
     } finally {
       setSyncing(false)
     }
@@ -1344,8 +1428,8 @@ export default function App() {
         }
       }
       // Use the station selected during onboarding; R04 remains the fallback for skip/demo mode.
-      await loadRecommendation(result.stations[0] || 'R04')
-      setApiMessage('已同步設定並啟用展示推播，這是依照您的偏好產生的推薦。')
+      const loaded = await loadRecommendation({ stationId: result.stations[0] || 'R04' })
+      if (loaded !== null) setApiMessage('已同步設定並啟用展示推播，這是依照您的偏好產生的推薦。')
     } catch (error) {
       setApiMessage(error instanceof Error ? `後端尚未連線：${error.message}` : '後端尚未連線，先顯示展示資料。')
     } finally {
@@ -1625,12 +1709,25 @@ export default function App() {
           {/* Station section */}
           <section>
             <div className="flex items-center justify-between gap-2 mb-2">
-              <button
-                onClick={() => setShowDemoMap(true)}
-                className="rounded-lg border border-[#9bd5c0] bg-[#f0faf5] px-2.5 py-1.5 text-xs font-semibold text-[#007a44] active:scale-95"
-              >
-                🗺️ Demo 模擬位置
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void startChromeBeaconScan()}
+                  disabled={!supportsBeaconScan() || beaconScanning || syncing}
+                  title={supportsBeaconScan() ? '使用 Chrome 掃描附近 iBeacon' : '需要支援 Web Bluetooth scanning 的 Chrome'}
+                  className="rounded-lg border border-[#9bd5c0] bg-[#f0faf5] px-2.5 py-1.5 text-xs font-semibold text-[#007a44] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {beaconScanning ? '📡 掃描中…' : '📡 Chrome Beacon'}
+                </button>
+                <button
+                  onClick={() => setShowDemoMap(true)}
+                  className="rounded-lg border border-[#9bd5c0] bg-[#f0faf5] px-2.5 py-1.5 text-xs font-semibold text-[#007a44] active:scale-95"
+                >
+                  🗺️ Demo 模擬位置
+                </button>
+              </div>
+              {beaconObservation && (
+                <span className="text-[10px] text-gray-400">Beacon {beaconObservation.major}/{beaconObservation.minor}</span>
+              )}
               <div className="flex items-center gap-2">
               <span className="text-xs text-gray-500">8秒後更新</span>
               <button className="rounded-lg overflow-hidden w-7 h-7"><img src={changeIcon} alt="更新" className="w-full h-full object-cover" /></button>
@@ -1664,7 +1761,7 @@ export default function App() {
               const arrivingLine = arrivingStation.code.match(/^[A-Z]+/)?.[0] ?? 'R'
               const arrivingNumber = arrivingStation.code.match(/\d+/)?.[0] ?? '04'
               const visibleOffers = recommendation
-                ? getRecommendationOffers(recommendation)
+                ? getRecommendationOffersForStation(recommendation, arrivingCode)
                   .filter(candidate => !claimedOfferIds.includes(candidate.offer_id))
                   .map(candidate => recommendationToOffer(recommendation, candidate))
                 : []
