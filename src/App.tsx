@@ -126,7 +126,7 @@ const ALL_STATIONS: { code: string; name: string; color: string }[] = [
   { code: 'R12', name: '民權西路', color: '#e3001b' },
   { code: 'R11', name: '雙連', color: '#e3001b' },
   { code: 'R10', name: '中山', color: '#e3001b' },
-  { code: 'R09', name: '台北車站', color: '#e3001b' },
+  { code: 'R09', name: '台大醫院', color: '#e3001b' },
   { code: 'R08', name: '台大醫院', color: '#e3001b' },
   { code: 'R07/O06', name: '東門', color: '#e3001b' },
   { code: 'R06', name: '古亭', color: '#e3001b' },
@@ -197,14 +197,15 @@ const ALL_STATIONS: { code: string; name: string; color: string }[] = [
   { code: 'BL01', name: '頂埔', color: '#0070bd' },
 ]
 
-// The demo only exposes stations with seeded offers. The full catalog can be
-// re-enabled once station and offer data are provided by the backend API.
-const DEMO_STATION_CODES = new Set(['R04', 'R03'])
+// Keep this list aligned with migrations/postgres/000011_demo_station_catalog_expansion.sql.
+const DEMO_STATION_CODES = new Set(['R04', 'R03', 'R09', 'G12', 'G07', 'BL18', 'BL12', 'O09'])
 const STATIONS = ALL_STATIONS.filter(station => DEMO_STATION_CODES.has(station.code))
 
 const FOOD_CATS = [
   { id: 'fast', label: '連鎖速食', emoji: '🍔' },
   { id: 'bakery', label: '烘焙甜點', emoji: '🥐' },
+  { id: 'coffee', label: '咖啡飲品', emoji: '☕' },
+  { id: 'lunch', label: '午餐便當', emoji: '🍱' },
   { id: 'cvs', label: '便利商店', emoji: '🏪' },
   { id: 'boba', label: '手搖飲', emoji: '🧋' },
   { id: 'local', label: '自營商品', emoji: '🛍️' },
@@ -497,6 +498,46 @@ const ALL_OFFERS: Offer[] = [
     content: '扣點領券後，憑券至康是美門市消費滿499元，可折抵50元（部分商品不適用，單筆發票限用1張）。',
     notes: DEFAULT_NOTES,
     steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-coffee-xinyi', cat: 'coffee', brand: 'Metro Cafe', title: '通勤咖啡折抵 50 元', points: 80,
+    expiry: '近期有效', desc: '信義安和站附近咖啡折抵優惠。', bg: '#7b4b2a', accent: '#fff', logo: '☕', amount: '$50', unit: '抵用',
+    content: '使用 80 點可兌換信義安和站附近咖啡折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-lunch-xinyi', cat: 'lunch', brand: 'Metro Kitchen', title: '午間套餐折抵 80 元', points: 120,
+    expiry: '近期有效', desc: '信義安和站附近午餐套餐折抵優惠。', bg: '#d97706', accent: '#fff', logo: '🍱', amount: '$80', unit: '抵用',
+    content: '使用 120 點可兌換信義安和站附近午餐套餐折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-dessert-101', cat: 'bakery', brand: 'Sweet Spot', title: '甜點兌換券', points: 150,
+    expiry: '近期有效', desc: '台北101／世貿站附近甜點兌換。', bg: '#d94672', accent: '#fff', logo: '🍰', amount: '1', unit: '份',
+    content: '使用 150 點可兌換台北101／世貿站附近甜點。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-drink-101', cat: 'boba', brand: 'Daily Tea', title: '台北101 手搖飲折抵 30 元', points: 70,
+    expiry: '近期有效', desc: '台北101／世貿站附近飲品折抵優惠。', bg: '#0f766e', accent: '#fff', logo: '🧋', amount: '$30', unit: '抵用',
+    content: '使用 70 點可兌換台北101／世貿站附近飲品折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-burger-ximen', cat: 'fast', brand: 'Ximen Burger', title: '西門町漢堡套餐折抵 100 元', points: 160,
+    expiry: '近期有效', desc: '西門站附近漢堡套餐折抵優惠。', bg: '#b45309', accent: '#fff', logo: '🍔', amount: '$100', unit: '抵用',
+    content: '使用 160 點可兌換西門站附近漢堡套餐折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-coffee-gongguan', cat: 'coffee', brand: 'Campus Coffee', title: '公館咖啡折抵 50 元', points: 90,
+    expiry: '近期有效', desc: '公館站附近咖啡店折抵優惠。', bg: '#92400e', accent: '#fff', logo: '☕', amount: '$50', unit: '抵用',
+    content: '使用 90 點可兌換公館站附近咖啡折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-convenience-cityhall', cat: 'cvs', brand: 'Metro Mart', title: '市政府便利商店折抵 50 元', points: 100,
+    expiry: '近期有效', desc: '市政府站附近便利商店消費折抵優惠。', bg: '#2563eb', accent: '#fff', logo: '🏪', amount: '$50', unit: '抵用',
+    content: '使用 100 點可兌換市政府站附近便利商店消費折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
+  },
+  {
+    id: 'offer-lunch-xingtian', cat: 'lunch', brand: 'Xingtian Bento', title: '行天宮便當折抵 80 元', points: 150,
+    expiry: '近期有效', desc: '行天宮站附近便當與午餐折抵優惠。', bg: '#dc2626', accent: '#fff', logo: '🍱', amount: '$80', unit: '抵用',
+    content: '使用 150 點可兌換行天宮站附近便當折抵券。', notes: DEFAULT_NOTES, steps: DEFAULT_STEPS,
   },
 ]
 
@@ -959,6 +1000,8 @@ function HomeScreen({ showNotif, onNotifTap, onNotifDismiss }: { showNotif: bool
 const CATEGORY_TO_API: Record<string, string> = {
   fast: 'fast food',
   bakery: 'dessert',
+  coffee: 'coffee',
+  lunch: 'lunch',
   cvs: 'convenience store',
   boba: 'drink',
   local: 'local',
@@ -967,8 +1010,28 @@ const CATEGORY_TO_API: Record<string, string> = {
   other: 'general',
 }
 
+const DEMO_OFFER_POINTS: Record<string, number> = {
+  'offer-coffee-xinyi': 80,
+  'offer-lunch-xinyi': 120,
+  'offer-dessert-101': 150,
+  'offer-dessert-xinyi': 100,
+  'offer-coffee-101': 90,
+  'offer-drink-101': 70,
+  'offer-breakfast-taipei': 110,
+  'offer-fastfood-taipei': 180,
+  'offer-burger-ximen': 160,
+  'offer-drink-ximen': 75,
+  'offer-coffee-gongguan': 90,
+  'offer-lunch-gongguan': 140,
+  'offer-convenience-cityhall': 100,
+  'offer-life-cityhall': 130,
+  'offer-convenience-taipei': 100,
+  'offer-lunch-xingtian': 150,
+  'offer-dessert-xingtian': 90,
+}
+
 function recommendationToOffer(recommendation: Recommendation): Offer {
-  const points = recommendation.offer_id === 'offer-lunch-xinyi' ? 120 : 80
+  const points = DEMO_OFFER_POINTS[recommendation.offer_id] || 80
   return {
     id: recommendation.offer_id,
     cat: 'recommendation',
@@ -1040,14 +1103,14 @@ export default function App() {
     const entry = await createEntryEvent(stationId, DEMO_USER_ID_HASH, traceId)
     setJourneyId(entry.journey_id)
     let lastError: unknown
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    for (let attempt = 0; attempt < 30; attempt += 1) {
       try {
         const latest = await getLatestRecommendation(entry.journey_id)
         setRecommendation(latest)
         return
       } catch (error) {
         lastError = error
-        await new Promise(resolve => window.setTimeout(resolve, 350))
+        await new Promise(resolve => window.setTimeout(resolve, 500))
       }
     }
     throw lastError instanceof Error ? lastError : new Error('推薦尚未準備完成')
@@ -1414,7 +1477,9 @@ export default function App() {
               const cats = userPrefs.cats.length > 0 ? userPrefs.cats : ALL_OFFERS.map(o => o.cat)
               const filtered = ALL_OFFERS.filter(o => cats.includes(o.cat))
               const apiOffer = recommendation ? recommendationToOffer(recommendation) : null
-              const visibleOffers = apiOffer ? [apiOffer] : filtered
+              const visibleOffers = apiOffer
+                ? [apiOffer, ...filtered.filter(offer => offer.id !== apiOffer.id)]
+                : filtered
 
               return (
                 <div className="rounded-2xl border border-[#c9e3ee] shadow-sm overflow-hidden mb-3" style={{ backgroundColor: '#e5f2f8' }}>
@@ -1424,7 +1489,7 @@ export default function App() {
                     <>
                       <div className="flex items-center justify-between px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <LineBadge line={arrivingLine} number={arrivingNumber} bg="#e3001b" />
+                          <LineBadge line={arrivingLine} number={arrivingNumber} bg={arrivingStation.color} />
                           <span className="text-base font-semibold text-gray-800">{arriving}</span>
                         </div>
                         <IconChevronUp />
