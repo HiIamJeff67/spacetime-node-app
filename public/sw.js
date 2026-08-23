@@ -6,11 +6,15 @@ self.addEventListener('push', event => {
   } catch {
     payload = { ...fallback, body: event.data ? event.data.text() : fallback.body }
   }
-  event.waitUntil(self.registration.showNotification(payload.title, {
+  const notification = self.registration.showNotification(payload.title, {
     body: payload.body,
     data: payload.data || { url: '/' },
     icon: '/favicon.ico',
-  }))
+  })
+  const inAppNotification = clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => {
+    for (const client of windows) client.postMessage({ type: 'push-notification', payload })
+  })
+  event.waitUntil(Promise.all([notification, inAppNotification]))
 })
 
 self.addEventListener('notificationclick', event => {

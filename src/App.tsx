@@ -520,6 +520,37 @@ interface Offer {
   steps: string[]       // 使用方式編號步驟
 }
 
+type InAppNotification = {
+  id: string
+  title: string
+  body: string
+  offerId?: string
+  receivedAt: number
+}
+
+function NotificationCenter({ notifications, onSelect, onClear }: { notifications: InAppNotification[]; onSelect: (notification: InAppNotification) => void; onClear: () => void }) {
+  return (
+    <div className="absolute right-3 top-[58px] z-50 w-[calc(100%-24px)] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+        <p className="font-bold text-gray-800">通知中心</p>
+        {notifications.length > 0 && <button onClick={onClear} className="text-xs font-semibold text-[#1688b8]">全部清除</button>}
+      </div>
+      {notifications.length === 0 ? (
+        <p className="px-4 py-6 text-center text-sm text-gray-400">目前沒有新通知</p>
+      ) : (
+        <div className="max-h-64 overflow-y-auto">
+          {notifications.map(notification => (
+            <button key={notification.id} onClick={() => onSelect(notification)} className="block w-full border-b border-gray-100 px-4 py-3 text-left last:border-0 hover:bg-gray-50">
+              <p className="text-sm font-bold text-gray-800">{notification.title}</p>
+              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-gray-500">{notification.body}</p>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const DEFAULT_NOTES = [
   '捷運點一經兌換恕不退還。',
   '優惠券具使用期限，逾期即無法使用且不得要求返還捷運點。',
@@ -1215,6 +1246,8 @@ export default function App() {
   const [bannerIndex, setBannerIndex] = useState(3)
   const [showHomeScreen, setShowHomeScreen] = useState(false)
   const [showNotif, setShowNotif] = useState(false)
+  const [notifications, setNotifications] = useState<InAppNotification[]>([])
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false)
   const [beaconScanning, setBeaconScanning] = useState(false)
   const [beaconObservation, setBeaconObservation] = useState<BeaconObservation | null>(null)
   const impressedOfferKeys = useRef(new Set<string>())
@@ -1261,6 +1294,36 @@ export default function App() {
       })
     }
   }, [currentStationCode, journeyId, journeyTraceId, recommendation])
+
+  useEffect(() => {
+    const addNotification = (notification: InAppNotification) => {
+      setNotifications(current => current.some(item => item.id === notification.id) ? current : [notification, ...current].slice(0, 10))
+    }
+    const handleServiceWorkerMessage = (event: MessageEvent<{ type?: string; payload?: { title?: string; body?: string; data?: { recommendation_id?: string; offer_id?: string } } }>) => {
+      if (event.data?.type !== 'push-notification') return
+      const payload = event.data.payload || {}
+      addNotification({
+        id: `push:${payload.data?.recommendation_id || crypto.randomUUID()}`,
+        title: payload.title || 'MetroPoint AI',
+        body: payload.body || '有新的專屬優惠推薦。',
+        offerId: payload.data?.offer_id,
+        receivedAt: Date.now(),
+      })
+    }
+    navigator.serviceWorker?.addEventListener('message', handleServiceWorkerMessage)
+    return () => navigator.serviceWorker?.removeEventListener('message', handleServiceWorkerMessage)
+  }, [])
+
+  useEffect(() => {
+    if (!recommendation) return
+    setNotifications(current => current.some(item => item.id === `recommendation:${recommendation.recommendation_id}`) ? current : [{
+      id: `recommendation:${recommendation.recommendation_id}`,
+      title: `抵達推薦：「${recommendation.title}」`,
+      body: recommendation.body || '有新的專屬優惠推薦。',
+      offerId: recommendation.offer_id,
+      receivedAt: Date.now(),
+    }, ...current].slice(0, 10))
+  }, [recommendation])
 
   async function loadRecommendation(source: { stationId?: string; beacon?: BeaconObservation }): Promise<string | null> {
     const requestId = recommendationRequestRef.current + 1
@@ -1375,6 +1438,13 @@ export default function App() {
     }).catch(() => {
       // Engagement telemetry is best-effort and must not block opening the offer.
     })
+  }
+
+  function openNotification(notification: InAppNotification) {
+    setNotificationCenterOpen(false)
+    if (!notification.offerId || !recommendation) return
+    const offer = getRecommendationOffersForStation(recommendation, currentStationCode).find(candidate => candidate.offer_id === notification.offerId)
+    if (offer) openOffer(recommendationToOffer(recommendation, offer))
   }
 
   async function dismissRecommendation(offerId = recommendation?.offer_id || '') {
@@ -1571,12 +1641,20 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             <button className="text-[#00a05a]"><IconTag /></button>
-            <button className="text-[#00a05a] relative">
+            <button onClick={() => setNotificationCenterOpen(open => !open)} aria-label="開啟通知中心" className="text-[#00a05a] relative">
               <IconBell />
-              <span className="absolute -top-1 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">5</span>
+              {notifications.length > 0 && <span className="absolute -top-1 -right-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{Math.min(notifications.length, 9)}</span>}
             </button>
           </div>
         </header>
+
+        {notificationCenterOpen && (
+          <NotificationCenter
+            notifications={notifications}
+            onSelect={openNotification}
+            onClear={() => setNotifications([])}
+          />
+        )}
 
         {/* Announcement ticker */}
         <div className="bg-gray-50 px-3 py-2 flex items-center gap-2 overflow-hidden border-b border-gray-100">
