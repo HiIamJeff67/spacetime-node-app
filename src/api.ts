@@ -1,4 +1,20 @@
-export const DEMO_USER_ID_HASH = 'sha256:' + 'a'.repeat(64)
+const SESSION_USER_ID_KEY = 'spacetime.demo.user_id_hash'
+
+function getSessionUserIdHash() {
+  try {
+    const existing = window.sessionStorage.getItem(SESSION_USER_ID_KEY)
+    if (existing) return existing
+    const bytes = crypto.getRandomValues(new Uint8Array(32))
+    const generated = `sha256:${Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')}`
+    window.sessionStorage.setItem(SESSION_USER_ID_KEY, generated)
+    return generated
+  } catch {
+    // ponytail: keep the seeded fallback for restricted browser storage; add auth when login exists.
+    return 'sha256:' + 'a'.repeat(64)
+  }
+}
+
+export const DEMO_USER_ID_HASH = getSessionUserIdHash()
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
 export type UserProfile = {
